@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Plotter Engine</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #111;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 320px;
+            height: 100%;
+            background: #1a1a1a;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        #outliner, #inspector {
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            position: absolute;
+            left: 320px;
+            top: 0;
+            width: calc(100% - 320px);
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h2>Outliner</h2>
+    <div id="outliner"></div>
+
+    <h2>Inspector</h2>
+    <div id="inspector"></div>
+</div>
+
+<canvas id="gfx"></canvas>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
