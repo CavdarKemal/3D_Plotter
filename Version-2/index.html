@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>3D Function Plotter – Version 2 (Animation)</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        #plot { width: 100%; height: 80vh; }
+        .row { margin-bottom: 10px; }
+        button { padding: 6px 12px; }
+    </style>
+</head>
+<body>
+
+<h2>3D Function Plotter – Version 2 (Animation)</h2>
+
+<div class="row">
+    <label>Beispiel-Funktion:</label>
+    <select id="exampleSelect">
+        <option value="Math.sin(x+t)*Math.cos(y)">z = sin(x+t)·cos(y)</option>
+        <option value="Math.sin(Math.sqrt(xx+yy)+t)">z = sin(√(x²+y²)+t)</option>
+        <option value="xx - yy + Math.sin(t)">z = x² - y² + sin(t)</option>
+        <option value="Math.sin(x*y + t)">z = sin(x·y + t)</option>
+    </select>
+</div>
+
+<div class="row">
+    <label>Eigene Funktion z = </label>
+    <input id="functionInput" type="text" size="40" value="Math.sin(x+t)*Math.cos(y)">
+</div>
+
+<div class="row">
+    <label>Auflösung:</label>
+    <input id="resolutionSlider" type="range" min="20" max="200" value="60">
+    <span id="resLabel">60</span>
+</div>
+
+<div class="row">
+    <button id="playBtn">▶️ Start</button>
+    <button id="stopBtn">⏸️ Stop</button>
+</div>
+
+<div id="plot"></div>
+
+<script>
+    let t = 0;
+    let animInterval = null;
+
+    function generatePlot() {
+        let funcText = document.getElementById("functionInput").value;
+        let resolution = parseInt(document.getElementById("resolutionSlider").value);
+
+        let x = [], y = [];
+        for (let i = -10; i <= 10; i += 20/resolution) x.push(i);
+        for (let j = -10; j <= 10; j += 20/resolution) y.push(j);
+
+        let z = [];
+        for (let i = 0; i < x.length; i++) {
+            let row = [];
+            for (let j = 0; j < y.length; j++) {
+                let xVal = x[i], yVal = y[j];
+                try {
+                    row.push(eval(funcText));
+                } catch {
+                    row.push(NaN);
+                }
+            }
+            z.push(row);
+        }
+
+        Plotly.newPlot("plot", [{
+            z: z, x: x, y: y, type: "surface"
+        }], {
+            title: "3D Plot (Animation)"
+        });
+    }
+
+    function startAnimation() {
+        if (animInterval) return;
+        animInterval = setInterval(() => {
+            t += 0.1;
+            generatePlot();
+        }, 100);
+    }
+
+    function stopAnimation() {
+        clearInterval(animInterval);
+        animInterval = null;
+    }
+
+    document.getElementById("exampleSelect").addEventListener("change", e => {
+        document.getElementById("functionInput").value = e.target.value;
+        generatePlot();
+    });
+
+    document.getElementById("resolutionSlider").addEventListener("input", e => {
+        document.getElementById("resLabel").innerText = e.target.value;
+        generatePlot();
+    });
+
+    document.getElementById("playBtn").addEventListener("click", startAnimation);
+    document.getElementById("stopBtn").addEventListener("click", stopAnimation);
+
+    generatePlot();
+</script>
+
+</body>
+</html>
