@@ -78,25 +78,43 @@ export class EditorInspector {
     renderMesh(meshComp) {
         const wrapper = document.createElement("div");
 
-        const addRow = (labelText, value, onChange) => {
-            const row = document.createElement("div");
-            row.className = "inspector-row";
+        const availableMeshes = ["cube", "sphere", "plane"];
 
-            const lbl = document.createElement("span");
-            lbl.className = "inspector-label";
-            lbl.textContent = labelText;
-            row.appendChild(lbl);
+        // Mesh dropdown
+        const meshRow = document.createElement("div");
+        meshRow.className = "inspector-row";
+        const meshLbl = document.createElement("span");
+        meshLbl.className = "inspector-label";
+        meshLbl.textContent = "Mesh";
+        meshRow.appendChild(meshLbl);
 
-            const input = document.createElement("input");
-            input.type = "text";
-            input.value = value;
-            input.onchange = () => onChange(input.value);
-            row.appendChild(input);
-            wrapper.appendChild(row);
-        };
+        const select = document.createElement("select");
+        select.style.cssText = "flex:1;background:#2a2a2e;color:#ddd;border:1px solid #3a3a3e;border-radius:3px;padding:3px 5px;font-size:12px;outline:none;";
+        for (const name of availableMeshes) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+            if (name === meshComp.meshName) opt.selected = true;
+            select.appendChild(opt);
+        }
+        select.onchange = () => { meshComp.meshName = select.value; };
+        meshRow.appendChild(select);
+        wrapper.appendChild(meshRow);
 
-        addRow("Mesh", meshComp.meshName, v => { meshComp.meshName = v; });
-        addRow("Material", meshComp.materialName, v => { meshComp.materialName = v; });
+        // Material text field
+        const matRow = document.createElement("div");
+        matRow.className = "inspector-row";
+        const matLbl = document.createElement("span");
+        matLbl.className = "inspector-label";
+        matLbl.textContent = "Material";
+        matRow.appendChild(matLbl);
+
+        const matInput = document.createElement("input");
+        matInput.type = "text";
+        matInput.value = meshComp.materialName;
+        matInput.onchange = () => { meshComp.materialName = matInput.value; };
+        matRow.appendChild(matInput);
+        wrapper.appendChild(matRow);
 
         return wrapper;
     }
