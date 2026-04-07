@@ -65,15 +65,28 @@ export class Scene {
 
             if (!mesh || !material) continue;
 
+            // Each entity needs its own uniform buffer to avoid
+            // all draws using the last entity's transform
+            if (!entity._objectBuffer) {
+                entity._objectBuffer = renderer.device.createBuffer({
+                    size: 64,
+                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+                });
+                entity._objectBindGroup = renderer.device.createBindGroup({
+                    layout: material.pipeline.getBindGroupLayout(1),
+                    entries: [{ binding: 0, resource: { buffer: entity._objectBuffer } }]
+                });
+            }
+
             renderer.device.queue.writeBuffer(
-                renderer.objectBuffer,
+                entity._objectBuffer,
                 0,
                 transform.worldMatrix
             );
 
             pass.setPipeline(material.pipeline);
             pass.setBindGroup(0, material.cameraBindGroup);
-            pass.setBindGroup(1, material.objectBindGroup);
+            pass.setBindGroup(1, entity._objectBindGroup);
 
             pass.setVertexBuffer(0, mesh.vertexBuffer);
             pass.setVertexBuffer(1, mesh.colorBuffer);
