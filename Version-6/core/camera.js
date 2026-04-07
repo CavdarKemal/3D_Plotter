@@ -2,8 +2,9 @@ import { mat4 } from "gl-matrix";
 
 export class Camera {
     constructor() {
-        this.position = [0, 0, 3];
-        this.rotation = [0, 0, 0]; // pitch, yaw, roll
+        // Start behind the scene looking in +Z direction toward origin
+        this.position = [0, 2, -6];
+        this.rotation = [-0.2, 0, 0]; // pitch slightly downward
 
         this.viewMatrix = mat4.create();
         this.projMatrix = mat4.create();

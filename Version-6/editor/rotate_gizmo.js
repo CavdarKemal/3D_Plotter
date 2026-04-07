@@ -10,55 +10,28 @@ export class RotateGizmo {
         this.activeEntity = null;
         this.activeAxis = null;
         this.dragging = false;
+        this.enabled = false;
 
         this.ringRadius = 1.5;
-        this.ringThickness = 0.1;
 
-        this.initMeshes();
         this.initEvents();
     }
 
-    initMeshes() {
-        const segments = 64;
-        const vertices = [];
-        const colorsX = [];
-        const colorsY = [];
-        const colorsZ = [];
-        const indices = [];
-
-        for (let i = 0; i < segments; i++) {
-            const a = (i / segments) * Math.PI * 2;
-            const x = Math.cos(a);
-            const y = Math.sin(a);
-
-            vertices.push(x, y, 0);
-            colorsX.push(1, 0, 0);
-            colorsY.push(0, 1, 0);
-            colorsZ.push(0, 0, 1);
-
-            if (i < segments - 1) {
-                indices.push(i, i + 1);
-            } else {
-                indices.push(i, 0);
-            }
-        }
-
-        const v = new Float32Array(vertices);
-        const i = new Uint16Array(indices);
-
-        this.renderer.meshSystem.createMesh("ring_x", v, new Float32Array(colorsX), i);
-        this.renderer.meshSystem.createMesh("ring_y", v, new Float32Array(colorsY), i);
-        this.renderer.meshSystem.createMesh("ring_z", v, new Float32Array(colorsZ), i);
-    }
-
     initEvents() {
-        this.canvas.addEventListener("mousedown", (e) => this.onMouseDown(e));
-        this.canvas.addEventListener("mouseup", () => this.onMouseUp());
-        this.canvas.addEventListener("mousemove", (e) => this.onMouseMove(e));
+        this.canvas.addEventListener("mousedown", e => {
+            if (e.button !== 0) return;
+            this.onMouseDown(e);
+        });
+        this.canvas.addEventListener("mouseup", e => {
+            if (e.button !== 0) return;
+            this.onMouseUp();
+        });
+        this.canvas.addEventListener("mousemove", e => this.onMouseMove(e));
     }
 
     setSelectedEntity(entity) {
         this.activeEntity = entity;
+        this.enabled = (entity !== null);
     }
 
     getRayFromMouse(e) {
@@ -70,10 +43,10 @@ export class RotateGizmo {
         mat4.invert(invVP, this.camera.viewProj);
 
         const pNear = vec3.fromValues(x, y, -1);
-        const pFar = vec3.fromValues(x, y, 1);
+        const pFar  = vec3.fromValues(x, y,  1);
 
         const nearWorld = vec3.transformMat4(vec3.create(), pNear, invVP);
-        const farWorld = vec3.transformMat4(vec3.create(), pFar, invVP);
+        const farWorld  = vec3.transformMat4(vec3.create(), pFar, invVP);
 
         const dir = vec3.sub(vec3.create(), farWorld, nearWorld);
         vec3.normalize(dir, dir);
@@ -87,7 +60,7 @@ export class RotateGizmo {
         const t = this.activeEntity.get("transform");
         if (!t) return null;
 
-        const pos = t.worldMatrix.slice(12, 15);
+        const pos = vec3.fromValues(t.worldMatrix[12], t.worldMatrix[13], t.worldMatrix[14]);
 
         const axes = {
             x: vec3.fromValues(1, 0, 0),
@@ -99,7 +72,8 @@ export class RotateGizmo {
         let bestDist = 0.15;
 
         for (const [axisName, axisDir] of Object.entries(axes)) {
-            const dist = this.distanceRayToCircle(ray, pos, axisDir);
+            // Bug fix: pass ray.origin and ray.dir separately (not the ray object)
+            const dist = this.distanceRayToCircle(ray.origin, ray.dir, pos, axisDir);
             if (dist < bestDist) {
                 bestDist = dist;
                 bestAxis = axisName;
@@ -128,7 +102,7 @@ export class RotateGizmo {
     }
 
     onMouseDown(e) {
-        if (!this.activeEntity) return;
+        if (!this.enabled || !this.activeEntity) return;
 
         const ray = this.getRayFromMouse(e);
         const axis = this.pickAxis(ray);
@@ -161,34 +135,33 @@ export class RotateGizmo {
     }
 
     render(pass, renderer) {
-        if (!this.activeEntity) return;
+        if (!this.enabled || !this.activeEntity) return;
 
         const t = this.activeEntity.get("transform");
         if (!t) return;
 
-        const pos = t.worldMatrix.slice(12, 15);
+        const pos = [t.worldMatrix[12], t.worldMatrix[13], t.worldMatrix[14]];
 
         const drawRing = (meshName, axis) => {
             const model = mat4.create();
             mat4.translate(model, model, pos);
             mat4.scale(model, model, [this.ringRadius, this.ringRadius, this.ringRadius]);
 
-            if (axis === "x") mat4.rotateY(model, model, Math.PI / 2);
-            if (axis === "z") mat4.rotateX(model, model, Math.PI / 2);
+            if (axis === "x") mat4.rotateY(model, model, Math.PI / 2);  // YZ plane
+            if (axis === "y") mat4.rotateX(model, model, Math.PI / 2);  // XZ plane
+            // "z": no rotation → XY plane
 
             renderer.device.queue.writeBuffer(renderer.objectBuffer, 0, model);
 
             const mesh = renderer.meshSystem.get(meshName);
-            const mat = renderer.materialSystem.get("basic");
+            const mat = renderer.materialSystem.get("gizmo");
 
             pass.setPipeline(mat.pipeline);
             pass.setBindGroup(0, mat.cameraBindGroup);
             pass.setBindGroup(1, mat.objectBindGroup);
-
             pass.setVertexBuffer(0, mesh.vertexBuffer);
             pass.setVertexBuffer(1, mesh.colorBuffer);
             pass.setIndexBuffer(mesh.indexBuffer, "uint16");
-
             pass.drawIndexed(mesh.indexCount);
         };
 

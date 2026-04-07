@@ -3,13 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>3D Plotter Engine</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "gl-matrix": "https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js"
+        }
+    }
+    </script>
     <style>
+        * { box-sizing: border-box; }
+
         body {
             margin: 0;
             overflow: hidden;
             background: #111;
-            color: white;
-            font-family: sans-serif;
+            color: #ddd;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 13px;
         }
 
         #ui {
@@ -18,16 +28,183 @@
             left: 0;
             width: 320px;
             height: 100%;
-            background: #1a1a1a;
+            background: #1c1c1e;
             border-right: 1px solid #333;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #toolbar {
+            padding: 8px;
+            background: #252527;
+            border-bottom: 1px solid #333;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .toolbar-btn {
+            background: #3a3a3c;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toolbar-btn:hover { background: #4a4a4e; }
+        .toolbar-btn.active {
+            background: #0a84ff;
+            border-color: #0a84ff;
+            color: white;
+        }
+
+        .toolbar-sep {
+            width: 1px;
+            background: #444;
+            margin: 0 2px;
+            align-self: stretch;
+        }
+
+        #sections {
+            flex: 1;
             overflow-y: auto;
             padding: 10px;
         }
 
-        #outliner, #inspector {
-            margin-bottom: 20px;
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: #888;
+            text-transform: uppercase;
+            margin: 12px 0 6px 0;
         }
 
+        /* Outliner */
+        .outliner-add-btn {
+            width: 100%;
+            background: #2a2a2e;
+            color: #4af;
+            border: 1px dashed #4af;
+            border-radius: 4px;
+            padding: 5px;
+            cursor: pointer;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .outliner-add-btn:hover { background: #1a2a3a; }
+
+        .outliner-root {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .outliner-node {
+            margin: 1px 0;
+        }
+
+        .outliner-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .outliner-label {
+            flex: 1;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .outliner-label:hover { background: #2a2a2e; }
+        .outliner-label.selected {
+            background: #0a84ff33;
+            color: #4af;
+        }
+
+        .outliner-rename-input {
+            flex: 1;
+            background: #333;
+            color: #fff;
+            border: 1px solid #0a84ff;
+            border-radius: 4px;
+            padding: 3px 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .outliner-del-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 16px;
+            line-height: 1;
+            border-radius: 3px;
+        }
+        .outliner-del-btn:hover { background: #5a1a1a; color: #f66; }
+
+        .outliner-children {
+            list-style: none;
+            padding-left: 16px;
+            margin: 0;
+        }
+
+        /* Inspector */
+        .inspector-empty {
+            color: #666;
+            font-style: italic;
+            padding: 8px 0;
+        }
+
+        .inspector-section {
+            margin-bottom: 12px;
+        }
+
+        .inspector-section h4 {
+            margin: 0 0 6px 0;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .inspector-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .inspector-label {
+            width: 65px;
+            flex-shrink: 0;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .inspector-row input[type="number"],
+        .inspector-row input[type="text"] {
+            flex: 1;
+            background: #2a2a2e;
+            color: #ddd;
+            border: 1px solid #3a3a3e;
+            border-radius: 3px;
+            padding: 3px 5px;
+            font-size: 12px;
+            outline: none;
+            min-width: 0;
+        }
+        .inspector-row input:focus { border-color: #0a84ff; }
+
+        /* Canvas */
         canvas {
             position: absolute;
             left: 320px;
@@ -36,19 +213,56 @@
             height: 100%;
             display: block;
         }
+
+        /* Status flash */
+        #status-msg {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #0a84ff;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        /* Help overlay */
+        #help {
+            position: fixed;
+            bottom: 10px;
+            left: 330px;
+            color: #555;
+            font-size: 11px;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h2>Outliner</h2>
-    <div id="outliner"></div>
+    <div id="toolbar"></div>
+    <div id="sections">
+        <div class="section-title">Outliner</div>
+        <div id="outliner"></div>
 
-    <h2>Inspector</h2>
-    <div id="inspector"></div>
+        <div class="section-title">Inspector</div>
+        <div id="inspector"></div>
+    </div>
 </div>
 
 <canvas id="gfx"></canvas>
+
+<div id="status-msg"></div>
+
+<div id="help">
+    Right-click + drag: look around &nbsp;|&nbsp;
+    WASD + Space/Q: move &nbsp;|&nbsp;
+    Left-click gizmo: transform &nbsp;|&nbsp;
+    Double-click name: rename
+</div>
 
 <script type="module" src="main.js"></script>
 </body>

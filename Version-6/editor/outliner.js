@@ -1,3 +1,6 @@
+import { Transform } from "../world/components/transform.js";
+import { MeshComponent } from "../world/components/mesh_component.js";
+
 export class EditorOutliner {
     constructor(scene, container) {
         this.scene = scene;
@@ -5,12 +8,22 @@ export class EditorOutliner {
 
         this.selectedEntity = null;
         this.onSelect = null;
+        this.onEntityCreated = null;
+        this.onEntityDeleted = null;
 
         this.render();
     }
 
     render() {
         this.container.innerHTML = "";
+
+        // "+ Add Entity" button
+        const addBtn = document.createElement("button");
+        addBtn.className = "outliner-add-btn";
+        addBtn.textContent = "+ Add Entity";
+        addBtn.onclick = () => this.createEntity();
+        this.container.appendChild(addBtn);
+
         const rootUl = document.createElement("ul");
         rootUl.className = "outliner-root";
 
@@ -21,38 +34,83 @@ export class EditorOutliner {
         this.container.appendChild(rootUl);
     }
 
+    createEntity() {
+        const entity = this.scene.createEntity();
+        entity.addComponent("transform", new Transform());
+        entity.addComponent("mesh", new MeshComponent("cube", "basic"));
+        this.scene.updateTransforms();
+        this.render();
+        if (this.onEntityCreated) this.onEntityCreated(entity);
+        // Auto-select new entity
+        if (this.onSelect) this.onSelect(entity);
+    }
+
     createNodeElement(node) {
         const li = document.createElement("li");
         li.className = "outliner-node";
 
-        const label = document.createElement("div");
+        const row = document.createElement("div");
+        row.className = "outliner-row";
+
+        // Entity label (click to select, double-click to rename)
+        const label = document.createElement("span");
         label.className = "outliner-label";
-
-        const name = node.entity
-            ? `Entity ${node.entity.id}`
-            : "(root)";
-
-        label.textContent = name;
+        label.textContent = node.entity ? node.entity.name : "(root)";
 
         label.onclick = () => {
             this.selectedEntity = node.entity;
             this.highlightSelection(label);
-
-            if (this.onSelect) {
-                this.onSelect(node.entity);
-            }
+            if (this.onSelect) this.onSelect(node.entity);
         };
 
-        li.appendChild(label);
+        label.ondblclick = () => {
+            if (!node.entity) return;
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "outliner-rename-input";
+            input.value = node.entity.name;
+
+            const commit = () => {
+                node.entity.name = input.value.trim() || node.entity.name;
+                this.render();
+            };
+
+            input.onblur = commit;
+            input.onkeydown = e => {
+                if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+                if (e.key === "Escape") { this.render(); }
+            };
+
+            label.replaceWith(input);
+            input.focus();
+            input.select();
+        };
+
+        row.appendChild(label);
+
+        // Delete button
+        if (node.entity) {
+            const delBtn = document.createElement("button");
+            delBtn.className = "outliner-del-btn";
+            delBtn.textContent = "×";
+            delBtn.title = "Delete entity";
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.scene.deleteEntity(node.entity.id);
+                this.render();
+                if (this.onEntityDeleted) this.onEntityDeleted();
+            };
+            row.appendChild(delBtn);
+        }
+
+        li.appendChild(row);
 
         if (node.children.length > 0) {
             const ul = document.createElement("ul");
             ul.className = "outliner-children";
-
             for (const child of node.children) {
                 ul.appendChild(this.createNodeElement(child));
             }
-
             li.appendChild(ul);
         }
 
@@ -60,9 +118,7 @@ export class EditorOutliner {
     }
 
     highlightSelection(label) {
-        const labels = this.container.querySelectorAll(".outliner-label");
-        labels.forEach(l => l.classList.remove("selected"));
-
+        this.container.querySelectorAll(".outliner-label").forEach(l => l.classList.remove("selected"));
         label.classList.add("selected");
     }
 }

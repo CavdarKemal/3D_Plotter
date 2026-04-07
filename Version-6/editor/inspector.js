@@ -1,12 +1,7 @@
 export class EditorInspector {
-    constructor(scene, outliner, container) {
+    constructor(scene, container) {
         this.scene = scene;
-        this.outliner = outliner;
         this.container = container;
-
-        this.outliner.onSelect = (entity) => {
-            this.render(entity);
-        };
 
         this.render(null);
     }
@@ -20,7 +15,7 @@ export class EditorInspector {
         }
 
         const title = document.createElement("h3");
-        title.textContent = `Entity ${entity.id}`;
+        title.textContent = entity.name || `Entity ${entity.id}`;
         this.container.appendChild(title);
 
         for (const [type, component] of entity.components.entries()) {
@@ -32,18 +27,18 @@ export class EditorInspector {
             section.appendChild(header);
 
             if (type === "transform") {
-                section.appendChild(this.renderTransform(component, entity));
+                section.appendChild(this.renderTransform(component));
             }
 
             if (type === "mesh") {
-                section.appendChild(this.renderMesh(component, entity));
+                section.appendChild(this.renderMesh(component));
             }
 
             this.container.appendChild(section);
         }
     }
 
-    renderTransform(transform, entity) {
+    renderTransform(transform) {
         const wrapper = document.createElement("div");
 
         const createVec3Field = (label, vec) => {
@@ -51,6 +46,7 @@ export class EditorInspector {
             row.className = "inspector-row";
 
             const lbl = document.createElement("span");
+            lbl.className = "inspector-label";
             lbl.textContent = label;
             row.appendChild(lbl);
 
@@ -58,10 +54,10 @@ export class EditorInspector {
                 const input = document.createElement("input");
                 input.type = "number";
                 input.step = "0.1";
-                input.value = vec[i];
+                input.value = vec[i].toFixed(3);
 
                 input.oninput = () => {
-                    vec[i] = parseFloat(input.value);
+                    vec[i] = parseFloat(input.value) || 0;
                     transform.updateLocalMatrix();
                     this.scene.updateTransforms();
                 };
@@ -79,44 +75,28 @@ export class EditorInspector {
         return wrapper;
     }
 
-    renderMesh(meshComp, entity) {
+    renderMesh(meshComp) {
         const wrapper = document.createElement("div");
 
-        const meshRow = document.createElement("div");
-        meshRow.className = "inspector-row";
+        const addRow = (labelText, value, onChange) => {
+            const row = document.createElement("div");
+            row.className = "inspector-row";
 
-        const meshLabel = document.createElement("span");
-        meshLabel.textContent = "Mesh:";
-        meshRow.appendChild(meshLabel);
+            const lbl = document.createElement("span");
+            lbl.className = "inspector-label";
+            lbl.textContent = labelText;
+            row.appendChild(lbl);
 
-        const meshInput = document.createElement("input");
-        meshInput.type = "text";
-        meshInput.value = meshComp.meshName;
-
-        meshInput.onchange = () => {
-            meshComp.meshName = meshInput.value;
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = value;
+            input.onchange = () => onChange(input.value);
+            row.appendChild(input);
+            wrapper.appendChild(row);
         };
 
-        meshRow.appendChild(meshInput);
-        wrapper.appendChild(meshRow);
-
-        const matRow = document.createElement("div");
-        matRow.className = "inspector-row";
-
-        const matLabel = document.createElement("span");
-        matLabel.textContent = "Material:";
-        matRow.appendChild(matLabel);
-
-        const matInput = document.createElement("input");
-        matInput.type = "text";
-        matInput.value = meshComp.materialName;
-
-        matInput.onchange = () => {
-            meshComp.materialName = matInput.value;
-        };
-
-        matRow.appendChild(matInput);
-        wrapper.appendChild(matRow);
+        addRow("Mesh", meshComp.meshName, v => { meshComp.meshName = v; });
+        addRow("Material", meshComp.materialName, v => { meshComp.materialName = v; });
 
         return wrapper;
     }

@@ -10,37 +10,28 @@ export class ScaleGizmo {
         this.activeEntity = null;
         this.activeAxis = null;
         this.dragging = false;
+        this.enabled = false;
 
         this.axisSize = 1.5;
 
-        this.initMeshes();
         this.initEvents();
     }
 
-    initMeshes() {
-        const v = new Float32Array([
-            0,0,0,
-            1,0,0
-        ]);
-
-        const cX = new Float32Array([1,0,0, 1,0,0]);
-        const cY = new Float32Array([0,1,0, 0,1,0]);
-        const cZ = new Float32Array([0,0,1, 0,0,1]);
-        const i = new Uint16Array([0,1]);
-
-        this.renderer.meshSystem.createMesh("scale_x", v, cX, i);
-        this.renderer.meshSystem.createMesh("scale_y", v, cY, i);
-        this.renderer.meshSystem.createMesh("scale_z", v, cZ, i);
-    }
-
     initEvents() {
-        this.canvas.addEventListener("mousedown", (e) => this.onMouseDown(e));
-        this.canvas.addEventListener("mouseup", () => this.onMouseUp());
-        this.canvas.addEventListener("mousemove", (e) => this.onMouseMove(e));
+        this.canvas.addEventListener("mousedown", e => {
+            if (e.button !== 0) return;
+            this.onMouseDown(e);
+        });
+        this.canvas.addEventListener("mouseup", e => {
+            if (e.button !== 0) return;
+            this.onMouseUp();
+        });
+        this.canvas.addEventListener("mousemove", e => this.onMouseMove(e));
     }
 
     setSelectedEntity(entity) {
         this.activeEntity = entity;
+        this.enabled = (entity !== null);
     }
 
     getRayFromMouse(e) {
@@ -63,22 +54,32 @@ export class ScaleGizmo {
         return { origin: nearWorld, dir };
     }
 
+    distanceRayToLine(rayOrigin, rayDir, linePoint, lineDir) {
+        // Shortest distance between two infinite lines
+        const n = vec3.cross(vec3.create(), rayDir, lineDir);
+        const lenN = vec3.length(n);
+        if (lenN < 0.0001) return 999; // parallel lines
+
+        const diff = vec3.sub(vec3.create(), linePoint, rayOrigin);
+        return Math.abs(vec3.dot(diff, n)) / lenN;
+    }
+
     pickAxis(ray) {
         if (!this.activeEntity) return null;
 
         const t = this.activeEntity.get("transform");
         if (!t) return null;
 
-        const pos = t.worldMatrix.slice(12, 15);
+        const pos = vec3.fromValues(t.worldMatrix[12], t.worldMatrix[13], t.worldMatrix[14]);
 
         const axes = {
-            x: vec3.fromValues(1,0,0),
-            y: vec3.fromValues(0,1,0),
-            z: vec3.fromValues(0,0,1)
+            x: vec3.fromValues(1, 0, 0),
+            y: vec3.fromValues(0, 1, 0),
+            z: vec3.fromValues(0, 0, 1)
         };
 
         let bestAxis = null;
-        let bestDist = 0.1;
+        let bestDist = 0.15;
 
         for (const [axisName, axisDir] of Object.entries(axes)) {
             const dist = this.distanceRayToLine(ray.origin, ray.dir, pos, axisDir);
@@ -91,14 +92,8 @@ export class ScaleGizmo {
         return bestAxis;
     }
 
-    distanceRayToLine(rayOrigin, rayDir, linePoint, lineDir) {
-        const v = vec3.sub(vec3.create(), linePoint, rayOrigin);
-        const cross = vec3.cross(vec3.create(), v, lineDir);
-        return vec3.length(cross);
-    }
-
     onMouseDown(e) {
-        if (!this.activeEntity) return;
+        if (!this.enabled || !this.activeEntity) return;
 
         const ray = this.getRayFromMouse(e);
         const axis = this.pickAxis(ray);
@@ -131,34 +126,32 @@ export class ScaleGizmo {
     }
 
     render(pass, renderer) {
-        if (!this.activeEntity) return;
+        if (!this.enabled || !this.activeEntity) return;
 
         const t = this.activeEntity.get("transform");
         if (!t) return;
 
-        const pos = t.worldMatrix.slice(12, 15);
+        const pos = [t.worldMatrix[12], t.worldMatrix[13], t.worldMatrix[14]];
 
         const drawAxis = (meshName, axis) => {
             const model = mat4.create();
             mat4.translate(model, model, pos);
             mat4.scale(model, model, [this.axisSize, this.axisSize, this.axisSize]);
 
-            if (axis === "x") mat4.rotateZ(model, model, -Math.PI/2);
-            if (axis === "z") mat4.rotateX(model, model,  Math.PI/2);
+            if (axis === "y") mat4.rotateZ(model, model, Math.PI / 2);
+            if (axis === "z") mat4.rotateY(model, model, -Math.PI / 2);
 
             renderer.device.queue.writeBuffer(renderer.objectBuffer, 0, model);
 
             const mesh = renderer.meshSystem.get(meshName);
-            const mat = renderer.materialSystem.get("basic");
+            const mat = renderer.materialSystem.get("gizmo");
 
             pass.setPipeline(mat.pipeline);
             pass.setBindGroup(0, mat.cameraBindGroup);
             pass.setBindGroup(1, mat.objectBindGroup);
-
             pass.setVertexBuffer(0, mesh.vertexBuffer);
             pass.setVertexBuffer(1, mesh.colorBuffer);
             pass.setIndexBuffer(mesh.indexBuffer, "uint16");
-
             pass.drawIndexed(mesh.indexCount);
         };
 

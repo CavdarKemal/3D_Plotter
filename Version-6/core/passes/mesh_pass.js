@@ -12,10 +12,16 @@ export class MeshPass extends RenderPass {
         const pass = encoder.beginRenderPass({
             colorAttachments: [{
                 view,
-                clearValue: { r: 0, g: 0, b: 0, a: 1 },
-                loadOp: "load",
+                clearValue: { r: 0.08, g: 0.08, b: 0.09, a: 1 },
+                loadOp: "clear",
                 storeOp: "store"
-            }]
+            }],
+            depthStencilAttachment: {
+                view: renderer.depthView,
+                depthClearValue: 1.0,
+                depthLoadOp: "clear",
+                depthStoreOp: "store"
+            }
         });
 
         scene.renderMeshes(pass, renderer);

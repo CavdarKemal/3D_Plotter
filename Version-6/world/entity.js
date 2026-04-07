@@ -1,8 +1,9 @@
 export class Entity {
     constructor(id) {
         this.id = id;
+        this.name = `Entity ${id}`;
         this.components = new Map();
-        this.node = null; // SceneGraphNode
+        this.node = null;
     }
 
     addComponent(type, component) {
